@@ -4,7 +4,7 @@ Linux rootkit research project (kinda started out as vibe-coded and as a C learn
 
 ## How it works.
 1. After loading into the kernel it'll hook into the system calls for `__x64_sys_kill` or the system call for the "kill" command
-2. After it registers and someone calls it with the signal of `42` the process where that kill command was ran will be granted root access to the system by preparing creds and setting the process where that kill command was ran creds to those prepared creds.
+2. After it registers and someone calls it with the signal of `42` and if the target process is the same as the process the command originates from like bash, will be granted root access to the system by preparing creds and setting the process where that kill command was ran creds to those prepared creds.
 3. The kill system call is modified and returns 0 as if it ran successfully.
 
 ## Building:
@@ -15,7 +15,7 @@ Linux rootkit research project (kinda started out as vibe-coded and as a C learn
 `sudo rmmod gumdrop`
 
 ## Use:
-* `kill -42 12345` or any PID will grant the process that ran kill root access.
+* `kill -42 $$` will grant the process that ran kill root access, this tries to send the signal code 42 to the current process.
 * More coming soon
 
 ## other:

