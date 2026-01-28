@@ -9,6 +9,7 @@
 #
 # Normal rules
 #
+*.mod*
 .*
 *.o
 *.o.*
