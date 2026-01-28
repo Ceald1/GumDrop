@@ -3,15 +3,21 @@ Linux rootkit research project (kinda started out as vibe-coded and as a C learn
 
 
 ## How it works.
+### Woot!
 1. After loading into the kernel it'll hook into the system calls for `__x64_sys_kill` or the system call for the "kill" command
 2. After it registers and someone calls it with the signal of `42` and if the target process is the same as the process the command originates from like bash, will be granted root access to the system by preparing creds and setting the process where that kill command was ran creds to those prepared creds.
 3. The kill system call is modified and returns 0 as if it ran successfully.
+
+### Sneaky beaky mode
+* By default the module will be hidden.
+* Just like popping a root process but instead use `41` as the signal.
 
 ## Building:
 1. `make`
 2. `sudo insmod gumdrop.ko`
 
 ## Removing:
+`kill -41 $$ # unhide the module`
 `sudo rmmod gumdrop`
 
 ## Use:

