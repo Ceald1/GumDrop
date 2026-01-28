@@ -13,6 +13,10 @@ Linux rootkit research project (kinda started out as vibe-coded and as a C learn
 * `kill -42 12345` or any PID will grant the process that ran kill root access.
 * More coming soon
 
+## other:
+* Blog post coming soon on research.
+
+
 ## Disclaimer
 This project is intended for educational and research purposes, including the study of operating system internals and security mechanisms.
 Users are responsible for complying with all applicable laws and regulations.
