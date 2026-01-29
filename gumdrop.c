@@ -113,15 +113,6 @@ static unsigned long get_syscall_return_addr(struct pt_regs *regs) {
   unsigned long *stack = (unsigned long *)regs->sp; // skip rest of system call
   return *stack;
 }
-static bool is_hidden(pid_t pid) {
-  int i;
-  for (i = 0; i < HIDE_ME_MAX; i++) {
-    if (HIDE_ME[i] == pid) {
-      return true;
-    }
-  }
-  return false;
-}
 
 int monitor_handle(struct kprobe *p, struct pt_regs *regs) {
   struct pt_regs *real_regs;
