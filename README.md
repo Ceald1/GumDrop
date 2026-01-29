@@ -18,8 +18,8 @@ Linux rootkit research project (kinda started out as vibe-coded and as a C learn
 2. `sudo insmod gumdrop.ko`
 
 ## Removing:
-`kill -41 $$ # unhide the module if hidden`
-`sudo rmmod gumdrop --force # needs to be force because it will leave an empty directory after being unhidden`
+1. `kill -41 $$ # unhide the module if hidden`
+2. `sudo rmmod gumdrop --force # needs to be force because it will leave an empty directory after being unhidden`
 
 ## Use:
 * `kill -42 $$` will grant the process that ran kill root access, this tries to send the signal code 42 to the current process.
