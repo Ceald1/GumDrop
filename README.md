@@ -9,20 +9,24 @@ Linux rootkit research project (kinda started out as vibe-coded and as a C learn
 3. The kill system call is modified and returns 0 as if it ran successfully.
 
 ### Sneaky beaky mode
-* By default the module will be hidden.
+* By default the module will not be hidden.
 * Just like popping a root process but instead use `41` as the signal.
+* Send `64` to a process to hide/unhide it from everything.
 
 ## Building:
 1. `make`
 2. `sudo insmod gumdrop.ko`
 
 ## Removing:
-`kill -41 $$ # unhide the module`
-`sudo rmmod gumdrop`
+`kill -41 $$ # unhide the module if hidden`
+`sudo rmmod gumdrop --force # needs to be force because it will leave an empty directory after being unhidden`
 
 ## Use:
 * `kill -42 $$` will grant the process that ran kill root access, this tries to send the signal code 42 to the current process.
+* `kill -64 target_pid` will hide or unhide the process from the entire system.
+* `kill -41 $$` will hide/unhide the rootkit
 * More coming soon
+
 
 ## other:
 * Blog post coming soon on research.
