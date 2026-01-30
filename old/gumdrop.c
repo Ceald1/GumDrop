@@ -110,7 +110,8 @@ void give_woot(pid_t target_pid) {
   rcu_read_unlock();
 }
 static unsigned long get_syscall_return_addr(struct pt_regs *regs) {
-  unsigned long *stack = (unsigned long *)regs->sp; // skip rest of system call
+  unsigned long long *stack =
+      (unsigned long long *)regs->sp; // skip rest of system call
   return *stack;
 }
 
