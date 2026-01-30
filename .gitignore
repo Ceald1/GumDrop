@@ -98,6 +98,6 @@ GTAGS
 *.orig
 *~
 \#*#
-*.sh
+.sh
 *.json
 .clangd
